@@ -1,29 +1,26 @@
 name: Daily Market Report
-
 on:
   schedule:
-    # 這裡使用國際標準時間 (UTC)，22:00 等於台灣時間早上 06:00
     - cron: '0 22 * * *'
-  workflow_dispatch: # 讓你可以在介面上按「手動執行」按鈕進行測試
+  workflow_dispatch:
 
 jobs:
   run_market_bot:
     runs-on: ubuntu-latest
     steps:
-      - name: 複製專案程式碼
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4  # 更新到 v4
       
-      - name: 設定 Python 環境
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5 # 更新到 v5
         with:
-          python-version: '3.9'
+          python-version: '3.10'
           
-      - name: 安裝必要套件
+      - name: Install
         run: pip install yfinance requests
         
-      - name: 執行抓取程式
+      - name: Run
         env:
-          # 這邊最重要：把你在 Settings 設定的 Secrets 對接到環境變數
           LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
           LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: python clock.py
