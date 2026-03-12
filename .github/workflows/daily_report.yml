@@ -1,0 +1,16 @@
+name: Daily Market Report
+on:
+  schedule:
+    - cron: '0 22 * * *' # 國際標準時間 22:00 = 台灣時間 06:00
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python
+        uses: ambassadors/setup-python@v2
+      - name: Install dependencies
+        run: pip install yfinance requests
+      - name: Run script
+        run: python clock.py
