@@ -1,41 +1,76 @@
-import yfinance as yf
 import requests
 import os
+import yfinance as yf
+from datetime import datetime
 
-def get_data(ticker_symbol, name):
+def get_txf_data():
+    """ 
+    優化後的台指期抓取邏輯 (含夜盤)
+    避開 HTML 解析困難，直接讀取 Yahoo 股市 JSON API
+    """
+    url = "https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.getStockList;symbols=WTX%26"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'https://tw.stock.yahoo.com/quote/WTX&'
+    }
     try:
-        data = yf.Ticker(ticker_symbol).history(period="2d")
-        if len(data) < 2:
-            return f"{name}: 獲取失敗"
-        change = data['Close'].iloc[-1] - data['Close'].iloc[-2]
-        return f"{name}：{change:+.2f}"
-    except Exception as e:
-        return f"{name}: 錯誤"
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            if data and len(data) > 0:
+                price = data[0].get('price')
+                change = data[0].get('changeValue', 0)
+                return f"台指期：{float(price):.0f} ({float(change):+.0f})"
+    except Exception:
+        # 修正之前截圖中的語法錯誤：補齊 except 區塊
+        pass 
+    return "台指期：暫時無法獲取數據"
 
 def main():
-    # 抓取各項指標
-    nasdaq_str = get_data("^IXIC", "NASDAQ")
-    dji_str = get_data("^DJI", "道瓊指數")
+    # 1. 抓取美股 (維持 yfinance 功能)
+    try:
+        dji_data = yf.Ticker('^DJI').history(period='2d')
+        nas_data = yf.Ticker('^IXIC').history(period='2d')
+        dji = f"道瓊：{dji_data['Close'].diff().iloc[-1]:+.2f}"
+        nas = f"NASDAQ：{nas_data['Close'].diff().iloc[-1]:+.2f}"
+    except Exception:
+        dji, nas = "道瓊：讀取失敗", "NASDAQ：讀取失敗"
     
-    # 台指期代碼有時會變動，若 MTX=F 不行，可換成台指期近月代碼
-    txf_str = get_data("MTX=F", "台指期夜") 
+    # 2. 抓取台指期 (使用優化後的 JSON API 邏輯)
+    txf = get_txf_data()
 
-    msg = f"📊 市場快訊\n{dji_str}\n{nasdaq_str}\n{txf_str}"
+    # 3. 組合訊息
+    now = datetime.now().strftime('%Y-%m-%d %H:%M')
+    msg = f"📊 市場快訊 ({now})\n{dji}\n{nas}\n{txf}"
     
-    # LINE 推播
+    # 4. 發送到 LINE 群組
+    # 請確保環境變數中的 LINE_GROUP_ID 是以 'C' 開頭的群組 ID
     token = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
-    user_id = os.environ.get('LINE_USER_ID')
+    group_id = os.environ.get('LINE_GROUP_ID') # 改為讀取群組 ID
     
-    if not token or not user_id:
-        print("錯誤：找不到 Secrets 設定！")
+    if not token or not group_id:
+        print("❌ 錯誤：找不到 CHANNEL_ACCESS_TOKEN 或 GROUP_ID 環境變數")
         return
 
-    url = "https://api.line.me/v2/bot/message/push"
-    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
-    payload = {"to": user_id, "messages": [{"type": "text", "text": msg}]}
+    headers = {
+        "Content-Type": "application/json", 
+        "Authorization": f"Bearer {token}"
+    }
+    payload = {
+        "to": group_id, # 發送對象改為群組 ID
+        "messages": [{"type": "text", "text": msg}]
+    }
     
-    res = requests.post(url, headers=headers, json=payload)
-    print(f"發送狀態: {res.status_code}")
+    response = requests.post(
+        "https://api.line.me/v2/bot/message/push", 
+        headers=headers, 
+        json=payload
+    )
+    
+    if response.status_code == 200:
+        print(f"✅ 訊息已成功發送到群組：{group_id}")
+    else:
+        print(f"❌ 發送失敗，狀態碼：{response.status_code}，錯誤訊息：{response.text}")
 
 if __name__ == "__main__":
     main()
