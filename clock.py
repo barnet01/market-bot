@@ -46,7 +46,7 @@ def main():
     # 4. 發送到 LINE 群組
     # 請確保環境變數中的 LINE_GROUP_ID 是以 'C' 開頭的群組 ID
     token = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
-    group_id = os.environ.get('LINE_GROUP_ID') # 改為讀取群組 ID
+    group_id = os.environ.get('LINE_USERID_ID') # 改為讀取群組 ID
     
     if not token or not group_id:
         print("❌ 錯誤：找不到 CHANNEL_ACCESS_TOKEN 或 GROUP_ID 環境變數")
