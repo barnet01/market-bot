@@ -1,77 +1,57 @@
 import requests
 import os
+import re
 import yfinance as yf
-from datetime import datetime
 
-def get_txf_data():
-    """ 
-    優化後的台指期抓取邏輯 (含夜盤)
-    避開 HTML 解析困難，直接讀取 Yahoo 股市 JSON API
-    """
-    url = "https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.getStockList;symbols=WTX%26"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://tw.stock.yahoo.com/quote/WTX&'
-    }
+def get_txf_backup():
+    """備援來源：從玩股網抓取台指期夜盤近月數據"""
     try:
+        # 玩股網台指期近月頁面
+        url = "https://www.wantgoo.com/investor/futures/wtxf"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200:
-            data = res.json()
-            if data and len(data) > 0:
-                price = data[0].get('price')
-                change = data[0].get('changeValue', 0)
-                return f"台指期：{float(price):.0f} ({float(change):+.0f})"
-    except Exception:
-        # 修正之前截圖中的語法錯誤：補齊 except 區塊
-        pass 
-    return "台指期：暫時無法獲取數據"
+        
+        # 尋找當前點數與漲跌點數
+        # 玩股網的數據通常存在 class 為 "idx-data" 或特定變數中
+        price = re.search(r'\"lastPrice\":(\d+\.?\d*)', res.text).group(1)
+        change = re.search(r'\"changeValue\":(-?\d+\.?\d*)', res.text).group(1)
+        
+        return f"台指期(備援)：{float(price):.0f} ({float(change):+.0f})"
+    except:
+        return "台指期：所有來源皆失敗"
+
+def get_txf_primary():
+    """主要來源：Yahoo 股市網頁版 (WTX&F)"""
+    try:
+        url = "https://tw.stock.yahoo.com/quote/WTX%26F"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        
+        price = re.search(r'\"price\":(-?\d+\.?\d*)', res.text).group(1)
+        change = re.search(r'\"change\":(-?\d+\.?\d*)', res.text).group(1)
+        return f"台指期：{float(price):.0f} ({float(change):+.0f})"
+    except:
+        return None # 返回 None 觸發備援機制
 
 def main():
-    # 1. 抓取美股 (維持 yfinance 功能)
-    try:
-        dji_data = yf.Ticker('^DJI').history(period='2d')
-        nas_data = yf.Ticker('^IXIC').history(period='2d')
-        dji = f"道瓊：{dji_data['Close'].diff().iloc[-1]:+.2f}"
-        nas = f"NASDAQ：{nas_data['Close'].diff().iloc[-1]:+.2f}"
-    except Exception:
-        dji, nas = "道瓊：讀取失敗", "NASDAQ：讀取失敗"
+    # 1. 抓取美股
+    dji = f"道瓊：{yf.Ticker('^DJI').history(period='2d')['Close'].diff().iloc[-1]:+.2f}"
+    nas = f"NASDAQ：{yf.Ticker('^IXIC').history(period='2d')['Close'].diff().iloc[-1]:+.2f}"
     
-    # 2. 抓取台指期 (使用優化後的 JSON API 邏輯)
-    txf = get_txf_data()
+    # 2. 抓取台指期 (具備備援機制)
+    txf = get_txf_primary()
+    if txf is None:
+        txf = get_txf_backup()
 
-    # 3. 組合訊息
-    now = datetime.now().strftime('%Y-%m-%d %H:%M')
-    msg = f"📊 市場快訊 ({now})\n{dji}\n{nas}\n{txf}"
+    # 3. 組合並發送
+    msg = f"📊 市場快訊\n{dji}\n{nas}\n{txf}"
     
-    # 4. 發送到 LINE 群組
-    # 請確保環境變數中的 LINE_GROUP_ID 是以 'C' 開頭的群組 ID
-    # 從 GitHub Secrets 讀取變數
-    token = 'oPKb3CXX6/mN3iJe/at1Zi6uNKhcS6ws9BRVHpBsNWg0+R4auyzuCz/oF2M8jPhFKAKTF5NeT0Z25ykLkpycg3xoHJowzsruCTfB32pmW5Nts5mptbBVFTyY+qMWGBbuWet/++Jjd9aAKHPrXPTSFwdB04t89/1O/w1cDnyilFU='
-    user_id = 'Ua323e1a963c79b9b5b6ec0affa47dd2e' # 確認這裡名稱與 GitHub 一致   
+    token = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
+    uid = os.environ.get('LINE_USER_ID')
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
+    payload = {"to": uid, "messages": [{"type": "text", "text": msg}]}
     
-#    if not token or not group_id:
-#        print("❌ 錯誤：找不到 CHANNEL_ACCESS_TOKEN 或 GROUP_ID 環境變數")
-#        return
-
-    headers = {
-        "Content-Type": "application/json", 
-        "Authorization": f"Bearer {token}"
-    }
-    payload = {
-        "to": group_id, # 發送對象改為群組 ID
-        "messages": [{"type": "text", "text": msg}]
-    }
-    
-    response = requests.post(
-        "https://api.line.me/v2/bot/message/push", 
-        headers=headers, 
-        json=payload
-    )
-    
-    if response.status_code == 200:
-        print(f"✅ 訊息已成功發送到群組：{group_id}")
-    else:
-        print(f"❌ 發送失敗，狀態碼：{response.status_code}，錯誤訊息：{response.text}")
+    requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=payload)
 
 if __name__ == "__main__":
     main()
