@@ -49,9 +49,9 @@ def main():
     token = 'oPKb3CXX6/mN3iJe/at1Zi6uNKhcS6ws9BRVHpBsNWg0+R4auyzuCz/oF2M8jPhFKAKTF5NeT0Z25ykLkpycg3xoHJowzsruCTfB32pmW5Nts5mptbBVFTyY+qMWGBbuWet/++Jjd9aAKHPrXPTSFwdB04t89/1O/w1cDnyilFU='
     user_id = 'Ua323e1a963c79b9b5b6ec0affa47dd2e' # 確認這裡名稱與 GitHub 一致   
     
-    if not token or not group_id:
-        print("❌ 錯誤：找不到 CHANNEL_ACCESS_TOKEN 或 GROUP_ID 環境變數")
-        return
+#    if not token or not group_id:
+#        print("❌ 錯誤：找不到 CHANNEL_ACCESS_TOKEN 或 GROUP_ID 環境變數")
+#        return
 
     headers = {
         "Content-Type": "application/json", 
