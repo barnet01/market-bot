@@ -50,8 +50,10 @@ def main():
     uid = os.environ.get('LINE_USER_ID')
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
     payload = {"messages": [{"type": "text", "text": msg}]}
+   
+
     
-    requests.post("https://api.line.me/v2/bot/message/broadcast", headers=headers, json=payload)
+    requests.post("https://api.line.me/v2/bot/message/broadcast", headers=headers, json.dumps(payload))
 
 if __name__ == "__main__":
     main()
