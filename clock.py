@@ -54,17 +54,7 @@ def get_txf_night():
         return f"台指期盤後：抓取失敗"
 
 
-def get_txf_primary():
-    """主要來源：Yahoo 股市網頁版 (WTX&F)"""
-    try:
-        url = "https://tw.stock.yahoo.com/quote/WTX%26F"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=10)
-        price = re.search(r'\"price\":(-?\d+\.?\d*)', res.text).group(1)
-        change = re.search(r'\"change\":(-?\d+\.?\d*)', res.text).group(1)
-        return f"台指期：{float(price):.0f} ({float(change):+.0f})"
-    except:
-        return None
+
 
 def send_market_update():
     """發送市場快訊"""
